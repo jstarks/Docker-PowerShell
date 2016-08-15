@@ -27,7 +27,6 @@ namespace Docker.PowerShell.Support
                 }
 
                 Task stdinRead = null;
-                CancellationTokenSource inputCancelToken = null;
                 if (openStdin)
                 {
                     conin = new ConsoleStream(ConsoleDirection.In);
@@ -38,20 +37,19 @@ namespace Docker.PowerShell.Support
                         conin.EnableVTMode();
                     }
 
-                    inputCancelToken = new CancellationTokenSource();
-                    stdinRead = stream.CopyFromAsync(stdin, inputCancelToken.Token).ContinueWith(x => stream.CloseWrite());
+                    stdinRead = stream.CopyFromAsync(stdin, CancellationToken.None).ContinueWith(x => stream.CloseWrite());
                 }
 
                 await stream.CopyOutputToAsync(stdout, stdout, stderr, cancellationToken).ConfigureAwait(false);
 
                 if (stdinRead != null)
                 {
-                    inputCancelToken.Cancel();
                     try
                     {
+                        stdin.Close();
                         await stdinRead.ConfigureAwait(false);
                     }
-                    catch (TaskCanceledException)
+                    catch (ObjectDisposedException)
                     {
                         // Ignore.
                     }
